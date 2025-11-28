@@ -81,11 +81,12 @@ export default function App() {
       .catch(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 300000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      window.location.reload();
+    }, 300000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let rotateInterval;
