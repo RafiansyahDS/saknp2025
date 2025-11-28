@@ -14,10 +14,11 @@ import {
 
 const ROWS_PER_VIEW = 5;
 const ROTATE_INTERVAL = 5000;
+const FETCH_INTERVAL = 300000;
 const TOTAL_UNITS = 6;
 
 const colWidths = {
-  no: (0.3 / TOTAL_UNITS) * 100,
+  no: (0.2 / TOTAL_UNITS) * 100,
   kegiatan: (1 / TOTAL_UNITS) * 100,
   tanggal: (0.7 / TOTAL_UNITS) * 100,
   jam: (0.4 / TOTAL_UNITS) * 100,
@@ -45,6 +46,7 @@ const cellStyle = (width, isLast = false, content = '') => ({
   overflow: 'hidden',
   textOverflow: 'clip',
   fontSize: `calc(${responsiveFontSize} * clamp(0.5, ${40 / Math.max(content.length, 1)}, 1))`,
+  fontWeight: content.length > 100 ? 'normal' : '900',
 });
 
 export default function App() {
@@ -52,41 +54,48 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [currentGroup, setCurrentGroup] = useState(0);
 
-  const fetchData = useCallback(() => {
-    setLoading(true);
-    fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vR8l9TxcFuC8dTicblDiOBZdbN7e7BOMimn0xTzZSFHsQHUfMQiQLZYsXQT0l_Xijqgeg6nP396oEG1/pub?output=tsv')
-      .then(res => res.text())
-      .then(text => {
-        const lines = text.split('\n').filter(line => line.trim() !== '');
-        if (lines.length < 2) return setData([]);
-        const headers = lines[0].split('\t');
-        const rows = lines.slice(1).map((line, i) => {
-          const values = line.split('\t');
-          const getVal = col => {
-            const idx = headers.findIndex(h => h.trim() === col);
-            return idx !== -1 ? values[idx] || '' : '';
-          };
-          return {
-            no: i + 1,
-            kegiatan: getVal('KEGIATAN'),
-            tanggal: getVal('TANGGAL'),
-            jam: getVal('JAM'),
-            tempat: getVal('TEMPAT'),
-            keterangan: getVal('KETERANGAN'),
-          };
-        });
-        setData(rows);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+const fetchData = useCallback(() => {
+  setLoading(true);
+  setCurrentGroup(0); // ← Tambahkan ini
+  fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vR8l9TxcFuC8dTicblDiOBZdbN7e7BOMimn0xTzZSFHsQHUfMQiQLZYsXQT0l_Xijqgeg6nP396oEG1/pub?output=tsv  ')
+    .then(res => res.text())
+    .then(text => {
+      const lines = text.split('\n').filter(line => line.trim() !== '');
+      if (lines.length < 2) {
+        setData([]);
+        setLoading(false);
+        return;
+      }
+      const headers = lines[0].split('\t');
+      const rows = lines.slice(1).map((line, i) => {
+        const values = line.split('\t');
+        const getVal = col => {
+          const idx = headers.findIndex(h => h.trim() === col);
+          return idx !== -1 ? values[idx] || '' : '';
+        };
+        return {
+          no: i + 1,
+          kegiatan: getVal('KEGIATAN'),
+          tanggal: getVal('TANGGAL'),
+          jam: getVal('JAM'),
+          tempat: getVal('TEMPAT'),
+          keterangan: getVal('KETERANGAN'),
+        };
+      });
+      setData(rows);
+      setLoading(false);
+    })
+    .catch(() => {
+      setData([]);
+      setLoading(false);
+    });
+}, []);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      window.location.reload();
-    }, 300000);
-    return () => clearInterval(interval);
-  }, []);
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, FETCH_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   useEffect(() => {
     let rotateInterval;
@@ -148,7 +157,7 @@ marginBottom: '30px',
           <TableHead>
             <TableRow
             sx={{ textAlign: 'center', bgcolor: 'grey.400' }}>
-              <TableCell sx={cellStyle(colWidths.no)}>NO</TableCell>
+              <TableCell sx={cellStyle(colWidths.no)}></TableCell>
               <TableCell sx={cellStyle(colWidths.kegiatan)}>Kegiatan</TableCell>
               <TableCell sx={cellStyle(colWidths.tanggal)}>Tanggal</TableCell>
               <TableCell sx={cellStyle(colWidths.jam)}>Jam</TableCell>
@@ -166,7 +175,7 @@ marginBottom: '30px',
             ) : visibleRows.length > 0 ? (
               visibleRows.map(row => (
                 <TableRow key={`${currentGroup}-${row.no}`}>
-                  <TableCell sx={cellStyle(colWidths.no)}>{row.no}</TableCell>
+                  <TableCell sx={{ ...cellStyle(colWidths.no), textAlign: 'center' }}>{row.no}</TableCell>
                   <TableCell sx={cellStyle(colWidths.kegiatan, false, row.kegiatan)}>{row.kegiatan}</TableCell>
                   <TableCell sx={cellStyle(colWidths.tanggal, false, row.tanggal)}>{row.tanggal}</TableCell>
                   <TableCell sx={cellStyle(colWidths.jam, false, row.jam)}>{row.jam}</TableCell>
